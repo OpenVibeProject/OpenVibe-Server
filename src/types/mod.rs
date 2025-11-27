@@ -6,6 +6,15 @@ pub struct ConnectParams {
 }
 
 pub enum ClientType {
-    Device,
-    Mobile,
+    Master,
+    Slave,
+}
+
+impl std::fmt::Display for ClientType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClientType::Master => write!(f, "Master"),
+            ClientType::Slave => write!(f, "Slave"),
+        }
+    }
 }
