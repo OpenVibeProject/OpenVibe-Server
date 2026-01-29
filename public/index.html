@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenVibe Server Monitor</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>OpenVibe <span class="highlight">Monitor</span></h1>
+            <div class="status-badge" id="connectionStatus">Connecting...</div>
+        </header>
+
+        <section class="stats-panel">
+            <div class="stat-card">
+                <h3>Masters</h3>
+                <div class="stat-value" id="masterCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Slaves</h3>
+                <div class="stat-value" id="slaveCount">0</div>
+            </div>
+            <div class="stat-card">
+                <h3>Total Connections</h3>
+                <div class="stat-value" id="totalConnections">0</div>
+            </div>
+        </section>
+
+        <section class="visualization-container">
+            <div id="network"></div>
+        </section>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

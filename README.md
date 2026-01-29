@@ -14,7 +14,9 @@ A high-performance WebSocket server built in Rust that enables real-time bidirec
 - **Axum** - Modern async web framework with WebSocket support
 - **Tokio** - Async runtime for concurrent connections
 - **Tokio-Tungstenite** - WebSocket implementation
+- **Tower-Http** - Static file serving
 - **Serde** - JSON serialization/deserialization
+- **Vis.js** - Frontend network visualization
 - **Tracing** - Structured logging
 
 ## Description
@@ -24,6 +26,19 @@ OpenVibe-Server acts as a communication bridge in a Master-Slave model where:
 - **Slave** (Device): A single device that receives commands from all connected masters and broadcasts responses to all of them
 
 The server maintains persistent WebSocket connections and efficiently routes messages using Tokio's broadcast channels. It supports many-to-one connections with automatic cleanup of disconnected clients.
+
+## Web Monitoring UI
+
+The server includes a built-in **Real-time Monitoring Dashboard** accessible at `http://localhost:3000`.
+
+### Features
+- **Visual Graph**: See all connected Devices (Slaves) and their orbiting Masters.
+- **Real-time Updates**: The graph updates instantly as clients connect/disconnect.
+- **Stats Panel**: Live counts of total Masters and Slaves.
+- **Node Coloring**: 
+  - **Green Diamond**: Connected Slave (Central Hub)
+  - **Blue Dot**: Connected Master (Satellite)
+  - **Dark Diamond**: Waiting for Slave (Empty Device)
 
 ## API Endpoints
 
@@ -42,6 +57,13 @@ GET /pair?id={device_id}
 **Purpose**: Connect a master (mobile app) to a slave device  
 **Query Parameters**:
 - `id` (required): Slave device ID to connect to
+
+### Monitor Connection (Dashboard)
+```
+GET /monitor
+```
+**Purpose**: WebSocket endpoint for receiving real-time system state events (used by the Web UI).
+**Events**: `Init`, `ClientConnected`, `ClientDisconnected`
 
 ## Master vs Slave Architecture
 
@@ -278,7 +300,28 @@ cargo test -- --nocapture
 The test suite includes:
 - **device_broadcasts_to_multiple_mobiles**: Verifies slave broadcasts responses to multiple masters
 - **test_device_mobile_communication**: Smoke test for basic master-slave communication  
-- **mobile_messages_do_not_go_to_other_mobiles**: Ensures masters do NOT communicate directly (only through slave)
+- **devices_do_not_see_other_devices**: Ensures devices are isolated
+
+### Load Testing
+
+A load testing script is included to simulate high-traffic scenarios.
+
+1. **Run the server**:
+   ```bash
+   cargo run
+   ```
+2. **Run the load test**:
+   ```bash
+   ./tests/load_test.sh
+   ```
+   
+   This will spawn:
+   - 10 "Devices" (each with a unique ID)
+   - 1 Slave per device
+   - 20 Masters per device
+   - **Total**: ~210 concurrent WebSocket connections
+
+   Open the Web UI to visualize the cluster!
 
 ## Configuration
 

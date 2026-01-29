@@ -1,3 +1,4 @@
+use serde::{Serialize, Deserialize};
 use serde_json::Value as JsonValue;
 use tokio::sync::broadcast;
 use tracing::info;
@@ -49,3 +50,21 @@ pub fn log_forward(device_id: &str, direction: &str, text: &str) {
         info!("[{}] {} | {}", device_id, direction, pretty);
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type", content = "payload")]
+pub enum SystemEvent {
+    ClientConnected { device_id: String, client_type: String },
+    ClientDisconnected { device_id: String, client_type: String },
+    StatsUpdate {
+        master_count: usize,
+        slave_count: usize,
+    },
+    // Initial state sent to new monitor
+    Init {
+        masters: Vec<(String, usize)>,
+        slaves: Vec<(String, usize)>,
+        connections: Vec<(String, String)>, // Keep for potential explicit pairings
+    }
+}
+
