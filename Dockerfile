@@ -21,6 +21,8 @@ RUN apk add --no-cache ca-certificates
 RUN addgroup -g 1000 app && adduser -D -s /bin/sh -u 1000 -G app app
 
 COPY --from=builder /app/target/release/openvibe-server /usr/local/bin/openvibe-server
+WORKDIR /app
+COPY public ./public
 
 USER app
 
