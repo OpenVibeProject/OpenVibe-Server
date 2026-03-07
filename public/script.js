@@ -64,11 +64,12 @@ function getDeviceId(deviceId) {
 }
 
 function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return '0 <span class="unit">B</span>';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const val = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+    return `${val} <span class="unit">${sizes[i]}</span>`;
 }
 
 // Track client nodes to remove correct ones
@@ -188,9 +189,9 @@ function updateStats() {
     masterCountEl.innerText = stats.masters;
     slaveCountEl.innerText = stats.slaves;
     totalConnectionsEl.innerText = stats.masters + stats.slaves;
-    dataInEl.innerText = formatBytes(stats.bytes_in);
-    dataOutEl.innerText = formatBytes(stats.bytes_out);
-    dataTotalEl.innerText = formatBytes(stats.bytes_in + stats.bytes_out);
+    dataInEl.innerHTML = formatBytes(stats.bytes_in);
+    dataOutEl.innerHTML = formatBytes(stats.bytes_out);
+    dataTotalEl.innerHTML = formatBytes(stats.bytes_in + stats.bytes_out);
 }
 
 socket.onopen = () => {
