@@ -6,11 +6,16 @@ const statusBadge = document.getElementById('connectionStatus');
 const masterCountEl = document.getElementById('masterCount');
 const slaveCountEl = document.getElementById('slaveCount');
 const totalConnectionsEl = document.getElementById('totalConnections');
+const dataInEl = document.getElementById('dataIn');
+const dataOutEl = document.getElementById('dataOut');
+const dataTotalEl = document.getElementById('dataTotal');
 
 // Stats state
 let stats = {
     masters: 0,
-    slaves: 0
+    slaves: 0,
+    bytes_in: 0,
+    bytes_out: 0
 };
 
 // Vis.js Network
@@ -56,6 +61,14 @@ const network = new vis.Network(container, data, options);
 // Helper to generate IDs
 function getDeviceId(deviceId) {
     return `DEVICE_${deviceId}`;
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // Track client nodes to remove correct ones
@@ -175,16 +188,19 @@ function updateStats() {
     masterCountEl.innerText = stats.masters;
     slaveCountEl.innerText = stats.slaves;
     totalConnectionsEl.innerText = stats.masters + stats.slaves;
+    dataInEl.innerText = formatBytes(stats.bytes_in);
+    dataOutEl.innerText = formatBytes(stats.bytes_out);
+    dataTotalEl.innerText = formatBytes(stats.bytes_in + stats.bytes_out);
 }
 
 socket.onopen = () => {
-    statusBadge.innerText = 'Connected';
+    statusBadge.innerText = '⬤‎‎ ‎‎   Connected';
     statusBadge.classList.add('connected');
     statusBadge.classList.remove('disconnected');
 };
 
 socket.onclose = () => {
-    statusBadge.innerText = 'Disconnected';
+    statusBadge.innerText = '⬤‎ ‎ ‎‎  Disconnected';
     statusBadge.classList.add('disconnected');
     statusBadge.classList.remove('connected');
 };
@@ -205,7 +221,11 @@ socket.onmessage = (event) => {
                 handleDisconnect(msg.payload);
                 break;
             case 'StatsUpdate':
-                // Optional if backend sends explicit stats
+                stats.masters = msg.payload.master_count;
+                stats.slaves = msg.payload.slave_count;
+                stats.bytes_in = msg.payload.bytes_in;
+                stats.bytes_out = msg.payload.bytes_out;
+                updateStats();
                 break;
         }
     } catch (e) {
@@ -220,6 +240,9 @@ function handleInit(payload) {
     deviceClients.clear();
     stats.masters = 0;
     stats.slaves = 0;
+    stats.bytes_in = payload.bytes_in || 0;
+    stats.bytes_out = payload.bytes_out || 0;
+    updateStats();
 
     // Payload: { masters: [[deviceId, count], ...], slaves: [[deviceId, count], ...] }
 

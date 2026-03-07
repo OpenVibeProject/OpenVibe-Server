@@ -59,12 +59,16 @@ pub enum SystemEvent {
     StatsUpdate {
         master_count: usize,
         slave_count: usize,
+        bytes_in: u64,
+        bytes_out: u64,
     },
     // Initial state sent to new monitor
     Init {
         masters: Vec<(String, usize)>,
         slaves: Vec<(String, usize)>,
         connections: Vec<(String, String)>, // Keep for potential explicit pairings
+        bytes_in: u64,
+        bytes_out: u64,
     }
 }
 

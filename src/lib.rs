@@ -8,6 +8,7 @@ use tracing::info;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::env;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::services::ServeDir;
 
@@ -25,6 +26,8 @@ type Connections = Arc<RwLock<HashMap<DeviceId, ConnectionPair>>>;
 struct AppState {
     connections: Connections,
     tx: broadcast::Sender<SystemEvent>,
+    bytes_in: Arc<AtomicU64>,
+    bytes_out: Arc<AtomicU64>,
 }
 
 pub async fn run_server() {
@@ -38,7 +41,12 @@ pub async fn run_server_on(addr: &str) {
 
     let connections: Connections = Arc::new(RwLock::new(HashMap::new()));
     let (tx, _rx) = broadcast::channel(100);
-    let state = AppState { connections: connections.clone(), tx: tx.clone() };
+    let state = AppState { 
+        connections: connections.clone(), 
+        tx: tx.clone(),
+        bytes_in: Arc::new(AtomicU64::new(0)),
+        bytes_out: Arc::new(AtomicU64::new(0)),
+    };
 
     let app = Router::new()
         .route("/register", get(register_handler))
@@ -103,9 +111,12 @@ async fn handle_monitor(mut socket: WebSocket, state: AppState) {
             masters,
             slaves,
             connections: connections_list,
+            bytes_in: state.bytes_in.load(Ordering::Relaxed),
+            bytes_out: state.bytes_out.load(Ordering::Relaxed),
         };
 
         if let Ok(msg) = serde_json::to_string(&init_event) {
+            state.bytes_out.fetch_add(msg.len() as u64, Ordering::Relaxed);
             let _ = socket.send(axum::extract::ws::Message::Text(msg.into())).await;
         }
     }
@@ -113,6 +124,7 @@ async fn handle_monitor(mut socket: WebSocket, state: AppState) {
     // Stream events
     while let Ok(msg) = rx.recv().await {
         if let Ok(json) = serde_json::to_string(&msg) {
+             state.bytes_out.fetch_add(json.len() as u64, Ordering::Relaxed);
              if socket.send(axum::extract::ws::Message::Text(json.into())).await.is_err() {
                  break;
              }
@@ -135,14 +147,19 @@ async fn handle_connection(mut socket: WebSocket, device_id: DeviceId, client_ty
         loop {
             tokio::select! {
                 Ok(msg) = rx.recv() => {
+                    let msg_len = msg.len();
                     if socket.send(axum::extract::ws::Message::Text(msg.into())).await.is_err() {
                         break;
                     }
+                    state.bytes_out.fetch_add(msg_len as u64, Ordering::Relaxed);
+                    broadcast_stats(&state).await;
                 }
                 msg = socket.recv() => {
                     match msg {
                         Some(Ok(axum::extract::ws::Message::Text(text))) => {
+                            state.bytes_in.fetch_add(text.len() as u64, Ordering::Relaxed);
                             forward_message(&state.connections, &device_id, text.to_string(), true).await;
+                            broadcast_stats(&state).await;
                         }
                         _ => break,
                     }
@@ -160,14 +177,19 @@ async fn handle_connection(mut socket: WebSocket, device_id: DeviceId, client_ty
         loop {
             tokio::select! {
                 Ok(msg) = rx.recv() => {
+                    let msg_len = msg.len();
                     if socket.send(axum::extract::ws::Message::Text(msg.into())).await.is_err() {
                         break;
                     }
+                    state.bytes_out.fetch_add(msg_len as u64, Ordering::Relaxed);
+                    broadcast_stats(&state).await;
                 }
                 msg = socket.recv() => {
                     match msg {
                         Some(Ok(axum::extract::ws::Message::Text(text))) => {
+                            state.bytes_in.fetch_add(text.len() as u64, Ordering::Relaxed);
                             forward_message(&state.connections, &device_id, text.to_string(), false).await;
+                            broadcast_stats(&state).await;
                         }
                         _ => break,
                     }
@@ -225,4 +247,23 @@ async fn unregister_client(connections: &Connections, device_id: &str, is_master
             conn.remove(device_id);
         }
     }
+}
+async fn broadcast_stats(state: &AppState) {
+    let conn = state.connections.read().await;
+    let mut master_count = 0;
+    let mut slave_count = 0;
+
+    for (_, (master, slave)) in conn.iter() {
+        if master.is_some() { master_count += 1; }
+        if slave.is_some() { slave_count += 1; }
+    }
+
+    let stats_event = SystemEvent::StatsUpdate {
+        master_count,
+        slave_count,
+        bytes_in: state.bytes_in.load(Ordering::Relaxed),
+        bytes_out: state.bytes_out.load(Ordering::Relaxed),
+    };
+
+    let _ = state.tx.send(stats_event);
 }
